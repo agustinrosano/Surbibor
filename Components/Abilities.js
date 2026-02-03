@@ -142,51 +142,69 @@ const abilityDefinitions = {
         damage: 1 + Math.floor((level - 1) / 2),
         radius: 36 + level * 4,
         speed: 4 + level * 0.4,
-        cooldown: 10
+        cooldown: 10,
+        orbCount: level >= 6 ? 3 : 1
       };
     },
     update(instance, ctx) {
       const stats = this.stats(instance.level);
-
-      if (!instance.active) {
-        instance.cooldown -= ctx.dt;
-        if (instance.cooldown <= 0) {
-          instance.active = true;
-          instance.angle = 0;
+      if (!instance.orbs || instance.orbs.length !== stats.orbCount) {
+        const baseOffsets = [];
+        for (let i = 0; i < stats.orbCount; i++) {
+          baseOffsets.push((Math.PI * 2 * i) / stats.orbCount);
         }
-        return;
+        instance.orbs = baseOffsets.map(offset => ({
+          offset,
+          active: true,
+          cooldown: 0
+        }));
       }
 
       instance.angle += stats.speed * ctx.dt;
-      const orbitX = ctx.player.x + ctx.player.width / 2 + Math.cos(instance.angle) * stats.radius;
-      const orbitY = ctx.player.y + ctx.player.height / 2 + Math.sin(instance.angle) * stats.radius;
-      instance.lastPosition = { x: orbitX, y: orbitY, radius: 8 };
 
-      for (let i = ctx.enemies.length - 1; i >= 0; i--) {
-        const e = ctx.enemies[i];
-        const collision =
-          orbitX - 6 < e.x + e.width &&
-          orbitX + 6 > e.x &&
-          orbitY - 6 < e.y + e.height &&
-          orbitY + 6 > e.y;
-
-        if (collision) {
-          const killed = ctx.damageEnemy(e, stats.damage);
-          if (killed) {
-            ctx.enemies.splice(i, 1);
-            instance.active = false;
-            instance.cooldown = stats.cooldown;
+      instance.orbs.forEach(orb => {
+        if (!orb.active) {
+          orb.cooldown -= ctx.dt;
+          if (orb.cooldown <= 0) {
+            orb.active = true;
           }
-          break;
+          return;
         }
-      }
+
+        const angle = instance.angle + orb.offset;
+        const orbitX = ctx.player.x + ctx.player.width / 2 + Math.cos(angle) * stats.radius;
+        const orbitY = ctx.player.y + ctx.player.height / 2 + Math.sin(angle) * stats.radius;
+        orb.position = { x: orbitX, y: orbitY, radius: 8 };
+
+        for (let i = ctx.enemies.length - 1; i >= 0; i--) {
+          const e = ctx.enemies[i];
+          const collision =
+            orbitX - 6 < e.x + e.width &&
+            orbitX + 6 > e.x &&
+            orbitY - 6 < e.y + e.height &&
+            orbitY + 6 > e.y;
+
+          if (collision) {
+            const killed = ctx.damageEnemy(e, stats.damage);
+            if (killed) {
+              ctx.enemies.splice(i, 1);
+            }
+            orb.active = false;
+            orb.cooldown = stats.cooldown;
+            break;
+          }
+        }
+      });
     },
     draw(instance, ctx) {
-      if (!instance.active || !instance.lastPosition) return;
+      if (!instance.orbs) return;
       ctx.fillStyle = 'rgba(120, 220, 255, 0.8)';
-      ctx.beginPath();
-      ctx.arc(instance.lastPosition.x, instance.lastPosition.y, instance.lastPosition.radius, 0, Math.PI * 2);
-      ctx.fill();
+      instance.orbs.forEach(orb => {
+        if (!orb.active || !orb.position) return;
+        ctx.beginPath();
+        ctx.arc(orb.position.x, orb.position.y, orb.position.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
     }
   }
   ,

@@ -1,10 +1,19 @@
+const treeImage = new Image();
+treeImage.src = '/Assets/Tree.png';
+let treeWidth = 64;
+let treeHeight = 80;
+treeImage.onload = () => {
+  treeWidth = treeImage.width || treeWidth;
+  treeHeight = treeImage.height || treeHeight;
+};
+
 export function createObstaculos(worldWidth = 800, worldHeight = 800, cantidad = 20) {
   const tipos = ['arbol', 'valla', 'piedra'];
   const obstaculos = [];
   for (let i = 0; i < cantidad; i++) {
     const tipo = tipos[Math.floor(Math.random() * tipos.length)];
     let width = 40, height = 40;
-    if (tipo === 'arbol') { width = 45; height = 55; }
+    if (tipo === 'arbol') { width = treeWidth; height = treeHeight; }
     if (tipo === 'valla') { width = 40; height = 8; }
     if (tipo === 'piedra') { width = 10; height = 10; }
     const x = Math.random() * (worldWidth - width);
@@ -13,9 +22,6 @@ export function createObstaculos(worldWidth = 800, worldHeight = 800, cantidad =
   }
   return obstaculos;
 }
-
-const treeImage = new Image();
-treeImage.src = '/Assets/Tree.png'; // Corrige la ruta si es necesario
 
 export function drawObstaculos(ctx, obstaculos) {
   obstaculos.forEach(obj => {
