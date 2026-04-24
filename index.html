@@ -12,7 +12,8 @@
       <div class="menu-content">
         <h1 class="game-title">BUBBA<br>SURVIVOR</h1>
         <div class="menu-actions">
-          <button id="start-game" class="btn-premium">INICIAR PARTIDA</button>
+          <button id="start-game" class="btn-premium">PARTIDA LOCAL</button>
+          <button id="multiplayer-btn" class="btn-premium">MULTI JUGADOR</button>
           <button id="settings-btn" class="btn-premium">OPCIONES</button>
         </div>
       </div>
@@ -101,6 +102,21 @@
         <div class="menu-actions" style="margin-top: 40px;">
           <button id="retry-btn" class="btn-premium">REINTENTAR</button>
           <button class="btn-premium back-to-menu-btn" style="font-size: 0.9rem;">MENÚ PRINCIPAL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Multiplayer Modal -->
+    <div id="multiplayer-modal" class="modal-container" style="display: none;">
+      <div class="modal-content glass-panel" style="width: 500px;">
+        <h2 class="modal-title">MULTI JUGADOR</h2>
+        <p style="font-family: 'Almendra', serif; color: #a69580; margin-bottom: 20px;">Servidor: svnode (Desconectado)</p>
+        
+        <div class="menu-actions">
+          <input type="text" id="room-id" placeholder="ID DE LA SALA" class="btn-premium" style="background: rgba(0,0,0,0.5); text-align: center; cursor: text;">
+          <button id="create-room-btn" class="btn-premium">CREAR SALA</button>
+          <button id="join-room-btn" class="btn-premium">UNIRSE A SALA</button>
+          <button id="close-multi-btn" class="btn-premium" style="font-size: 0.9rem;">VOLVER</button>
         </div>
       </div>
     </div>

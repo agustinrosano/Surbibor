@@ -63,7 +63,7 @@ canvas {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  background: url('/medieval_menu_background_1777043359957.png') center/cover no-repeat;
+  background: url('./Assets/medieval_menu_bg.png') center/cover no-repeat;
 }
 
 .main-menu::before {
@@ -166,25 +166,114 @@ canvas {
 /* --- HUD --- */
 
 .hud-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   z-index: 500;
 }
 
 .xp-bar-container {
-  height: 16px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 12px;
   background: #1a140f;
-  border-bottom: 3px solid #5d4037;
+  border-bottom: 2px solid #5d4037;
+  overflow: hidden;
 }
 
 .xp-bar-fill {
+  height: 100%;
+  width: 0%;
   background: linear-gradient(90deg, #d4af37, #fdd835);
+  transition: width 0.3s ease;
 }
 
 .hp-bar-container {
-  height: 30px;
-  border: 4px solid #3e2723;
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+  height: 24px;
+  border: 3px solid #3e2723;
   background: #1a140f;
+  overflow: hidden;
 }
 
 .hp-bar-fill {
+  height: 100%;
+  width: 100%;
   background: linear-gradient(to right, #8b0000, #ff0000);
+  transition: width 0.3s ease;
+}
+
+/* --- LEVEL UP SELECTION --- */
+
+.choices-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.choice-card {
+  display: flex;
+  position: relative;
+  padding: 20px;
+  background: rgba(0,0,0,0.6);
+  border: 2px solid #5d4037;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: slideIn 0.4s ease forwards;
+  opacity: 0;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(50px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.choice-card:hover {
+  transform: scale(1.03) translateX(10px);
+  background: rgba(93, 64, 55, 0.4);
+  border-color: var(--accent-secondary);
+}
+
+.rarity-badge {
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  padding: 2px 10px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  font-family: 'MedievalSharp', cursive;
+  color: #fff;
+  border-radius: 2px;
+  z-index: 5;
+}
+
+.rarity-common { border-color: #888; }
+.rarity-common .rarity-badge { background: #888; }
+
+.rarity-rare { border-color: #00d2ff; box-shadow: inset 0 0 10px rgba(0, 210, 255, 0.2); }
+.rarity-rare .rarity-badge { background: #00d2ff; color: #000; }
+.rarity-rare h3 { color: #00d2ff !important; }
+
+.rarity-legendary { border-color: #ffcc00; box-shadow: inset 0 0 20px rgba(255, 204, 0, 0.3); }
+.rarity-legendary .rarity-badge { background: #ffcc00; color: #000; }
+.rarity-legendary h3 { color: #ffcc00 !important; }
+
+.ability-level {
+  font-size: 0.7rem;
+  color: var(--accent-gold);
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+.ability-desc {
+  font-size: 0.9rem;
+  color: #a69580;
+  font-family: 'Almendra', serif;
 }

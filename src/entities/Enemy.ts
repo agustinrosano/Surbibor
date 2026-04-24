@@ -1,117 +1,167 @@
-import { Point, Rect } from '../engine/GameEngine';
+import { Player } from './Player';
 import { AssetLoader } from '../engine/AssetLoader';
 
-export interface EnemyType {
-  id: string;
-  maxHp: number;
-  speed: number;
-  scale: number;
-  xp: number;
-  spriteName: string;
-  numFrames: number;
-  frameSpeed: number;
+export enum EnemyType {
+  RUNNER = 'runner',
+  SKELETON = 'skeleton',
+  BAT = 'bat',
+  ZOMBIE = 'zombie'
 }
 
-export const ENEMY_TYPES: { [key: string]: EnemyType } = {
-  runner: {
-    id: 'runner',
-    maxHp: 1,
-    speed: 90, // Adjusted for dt
-    scale: 1.6,
-    xp: 1,
-    spriteName: 'orc',
-    numFrames: 29,
-    frameSpeed: 15
+export interface EnemyConfig {
+  type: EnemyType;
+  hp: number;
+  speed: number;
+  xpValue: number;
+  asset: string;
+  width: number;
+  height: number;
+  frames: number;
+  isSheet: boolean;
+}
+
+export const ENEMY_TYPES: Record<EnemyType, EnemyConfig> = {
+  [EnemyType.RUNNER]: {
+    type: EnemyType.RUNNER,
+    hp: 3,
+    speed: 1.2,
+    xpValue: 2,
+    asset: 'orc',
+    width: 32,
+    height: 32,
+    frames: 24, // Trying 24 as a more standard number
+    isSheet: true
   },
-  skeleton: {
-    id: 'skeleton',
-    maxHp: 2,
-    speed: 70,
-    scale: 2,
-    xp: 3,
-    spriteName: 'skeleton',
-    numFrames: 13,
-    frameSpeed: 15
+  [EnemyType.SKELETON]: {
+    type: EnemyType.SKELETON,
+    hp: 8,
+    speed: 0.7,
+    xpValue: 5,
+    asset: 'skeleton',
+    width: 40,
+    height: 48,
+    frames: 14, // Skeleton seems to have 14
+    isSheet: true
+  },
+  [EnemyType.BAT]: {
+    type: EnemyType.BAT,
+    hp: 2,
+    speed: 2.2, // Faster
+    xpValue: 1,
+    asset: 'bat',
+    width: 32,
+    height: 32,
+    frames: 1,
+    isSheet: false
+  },
+  [EnemyType.ZOMBIE]: {
+    type: EnemyType.ZOMBIE,
+    hp: 15,
+    speed: 0.5,
+    xpValue: 10,
+    asset: 'zombie',
+    width: 32,
+    height: 40,
+    frames: 1,
+    isSheet: false
   }
 };
 
-export class Enemy implements Point {
+export class Enemy {
   public x: number;
   public y: number;
-  public width: number;
-  public height: number;
   public hp: number;
   public maxHp: number;
-  public speed: number;
+  public config: EnemyConfig;
+  public width: number;
+  public height: number;
   public xpValue: number;
   
-  private type: EnemyType;
   private currentFrame: number = 0;
-  private frameCounter: number = 0;
-  
-  public burnRemaining: number = 0;
-  public burnTick: number = 0;
+  private frameTimer: number = 0;
+  private frameSpeed: number = 0.1;
 
-  constructor(x: number, y: number, type: EnemyType) {
+  constructor(x: number, y: number, type: EnemyType = EnemyType.RUNNER) {
+    this.config = ENEMY_TYPES[type];
     this.x = x;
     this.y = y;
-    this.type = type;
-    this.hp = type.maxHp;
-    this.maxHp = type.maxHp;
-    this.speed = type.speed;
-    this.xpValue = type.xp;
-
-    this.height = 48 * type.scale;
-    this.width = 32 * type.scale;
+    this.hp = this.config.hp;
+    this.maxHp = this.config.hp;
+    this.width = this.config.width;
+    this.height = this.config.height;
+    this.xpValue = this.config.xpValue;
+    this.currentFrame = Math.floor(Math.random() * this.config.frames);
   }
 
-  public get hitbox(): Rect {
-    const margin = this.width * 0.25;
-    return {
-      x: this.x + margin,
-      y: this.y + margin,
-      width: this.width - margin * 2,
-      height: this.height - margin * 2
-    };
-  }
-
-  public update(playerPos: Point, dt: number) {
-    const dx = playerPos.x - this.x;
-    const dy = playerPos.y - this.y;
+  public update(player: Player, dt: number) {
+    const dx = (player.x + player.width / 2) - (this.x + this.width / 2);
+    const dy = (player.y + player.height / 2) - (this.y + this.height / 2);
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (dist > 0) {
-      this.x += (dx / dist) * this.speed * dt;
-      this.y += (dy / dist) * this.speed * dt;
+    if (dist > 5) {
+      this.x += (dx / dist) * this.config.speed * dt * 100;
+      this.y += (dy / dist) * this.config.speed * dt * 100;
     }
 
-    this.frameCounter++;
-    if (this.frameCounter >= this.type.frameSpeed) {
-      this.currentFrame = (this.currentFrame + 1) % this.type.numFrames;
-      this.frameCounter = 0;
-    }
-
-    if (this.burnRemaining > 0) {
-      this.burnRemaining -= dt;
-      this.burnTick += dt;
-      if (this.burnTick >= 0.6) {
-        this.burnTick = 0;
-        this.hp -= 1;
-      }
+    // Animation
+    this.frameTimer += dt;
+    if (this.frameTimer >= this.frameSpeed) {
+      this.currentFrame = (this.currentFrame + 1) % this.config.frames;
+      this.frameTimer = 0;
     }
   }
 
   public draw(ctx: CanvasRenderingContext2D) {
-    const sprite = AssetLoader.getImage(this.type.spriteName);
-    const frameW = sprite.width / this.type.numFrames;
-    const frameH = sprite.height;
+    const img = AssetLoader.getImage(this.config.asset);
+    if (!img) return;
 
-    ctx.drawImage(
-      sprite,
-      this.currentFrame * frameW, 0,
-      frameW, frameH,
-      this.x, this.y,
-      this.width, this.height
-    );
+    ctx.save();
+    
+    // For generated assets with white background, we try to skip drawing white pixels
+    // Note: This is an expensive trick but helpful if we can't regenerate
+    if (this.config.type === EnemyType.BAT || this.config.type === EnemyType.ZOMBIE) {
+        // Simple bobbing for single frames
+        const bob = Math.sin(Date.now() / 200) * 5;
+        ctx.translate(0, bob);
+        
+        // Use multiply to hide white background against the terrain
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.drawImage(img, this.x, this.y, this.width, this.height);
+        ctx.globalCompositeOperation = 'source-over';
+    } else if (this.config.isSheet) {
+      const frameW = img.width / this.config.frames;
+      const frameH = img.height;
+      ctx.drawImage(
+        img,
+        this.currentFrame * frameW, 0,
+        frameW, frameH,
+        this.x, this.y,
+        this.width, this.height
+      );
+    } else {
+      // Draw single frame
+      ctx.drawImage(img, this.x, this.y, this.width, this.height);
+    }
+
+    ctx.restore();
+
+    // Health bar above enemy
+    if (this.hp < this.maxHp) {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(this.x, this.y - 8, this.width, 4);
+      ctx.fillStyle = '#f00';
+      ctx.fillRect(this.x, this.y - 8, (this.hp / this.maxHp) * this.width, 4);
+    }
+  }
+
+  // Hitbox for collisions - increased for Bats
+  public get hitbox() {
+    const padding = this.config.type === EnemyType.BAT ? -10 : 5; // Negative padding = larger hitbox
+    return {
+      x: this.x + padding,
+      y: this.y + padding,
+      width: this.width - padding * 2,
+      height: this.height - padding * 2
+    };
   }
 }

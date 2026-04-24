@@ -10,6 +10,9 @@ const hud = document.getElementById('hud');
 const backToMenuBtn = document.getElementById('back-to-menu');
 const charCards = document.querySelectorAll('.character-card');
 const resumeBtn = document.getElementById('resume-btn');
+const multiBtn = document.getElementById('multiplayer-btn');
+const multiModal = document.getElementById('multiplayer-modal');
+const closeMultiBtn = document.getElementById('close-multi-btn');
 
 // Start Flow
 if (startBtn && mainMenu && characterSelection) {
@@ -61,6 +64,19 @@ const retryBtn = document.getElementById('retry-btn');
 if (retryBtn) {
   retryBtn.addEventListener('click', () => {
     engine.reset(); // Keep same character logic could be added here
+  });
+}
+
+// Multiplayer Modal logic
+if (multiBtn && multiModal) {
+  multiBtn.addEventListener('click', () => {
+    multiModal.style.display = 'flex';
+  });
+}
+
+if (closeMultiBtn && multiModal) {
+  closeMultiBtn.addEventListener('click', () => {
+    multiModal.style.display = 'none';
   });
 }
 

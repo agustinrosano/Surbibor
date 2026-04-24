@@ -112,6 +112,19 @@ export class Player implements Point {
 
     ctx.globalAlpha = 1;
     
+    // Player Health Bar (Below)
+    const barW = this.width;
+    const barH = 6;
+    const barX = this.x;
+    const barY = this.y + this.height + 6;
+    
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(barX, barY, barW, barH);
+    
+    const hpRatio = this.hp / this.maxHp;
+    ctx.fillStyle = '#b22222'; // Firebrick Red
+    ctx.fillRect(barX, barY, barW * hpRatio, barH);
+    
     // Debug: Draw Hitbox
     // ctx.strokeStyle = 'red';
     // ctx.strokeRect(this.hitbox.x, this.hitbox.y, this.hitbox.width, this.hitbox.height);

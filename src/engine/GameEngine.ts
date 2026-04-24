@@ -1,6 +1,8 @@
 import { GameState, Point } from './GameEngine';
 import { Player } from '../entities/Player';
-import { Enemy, ENEMY_TYPES } from '../entities/Enemy';
+import { Enemy, ENEMY_TYPES, EnemyType } from '../entities/Enemy';
+import { Obstacle, ObstacleType } from '../entities/Obstacle';
+import { Item, ItemType } from '../entities/Item';
 import { ProjectileSystem } from '../systems/ProjectileSystem';
 import { ParticleSystem } from '../systems/ParticleSystem';
 import { AbilitySystem, BasicShot, WhipAbility } from '../systems/AbilitySystem';
@@ -14,6 +16,8 @@ export class GameEngine {
   
   private player!: Player;
   private enemies: Enemy[] = [];
+  private obstacles: Obstacle[] = [];
+  private items: Item[] = [];
   private projectiles = new ProjectileSystem();
   private particles = new ParticleSystem();
   private abilities = new AbilitySystem();
@@ -72,7 +76,12 @@ export class GameEngine {
       'soldier': './Assets/Soldier.png',
       'orc': './Assets/Orc.png',
       'skeleton': './Assets/Skeleton.png',
-      'grass': './Assets/grass.png'
+      'grass': './Assets/grass.png',
+      'rock': './Assets/rock.png',
+      'stump': './Assets/stump.png',
+      'bat': './Assets/bat.png',
+      'zombie': './Assets/zombie.png',
+      'food': './Assets/food.png'
     });
   }
 
@@ -89,6 +98,8 @@ export class GameEngine {
     };
     
     this.enemies = [];
+    this.obstacles = [];
+    this.items = [];
     this.projectiles = new ProjectileSystem();
     this.particles = new ParticleSystem();
     this.abilities = new AbilitySystem();
@@ -106,11 +117,23 @@ export class GameEngine {
     } else {
       this.abilities.addAbility(new WhipAbility());
     }
+
+    for (let i = 0; i < 30; i++) {
+      this.spawnObstacle();
+    }
     
     document.getElementById('game-over-screen')!.style.display = 'none';
     document.getElementById('level-up-modal')!.style.display = 'none';
     document.getElementById('pause-modal')!.style.display = 'none';
     document.getElementById('hud')!.style.display = 'block';
+  }
+
+  private spawnObstacle() {
+    const range = 2500;
+    const x = this.player.x + (Math.random() - 0.5) * range;
+    const y = this.player.y + (Math.random() - 0.5) * range;
+    const type = Math.random() > 0.5 ? ObstacleType.ROCK : ObstacleType.STUMP;
+    this.obstacles.push(new Obstacle(x, y, type));
   }
 
   public stop() {
@@ -146,7 +169,32 @@ export class GameEngine {
   private update(dt: number, now: number) {
     this.gameState.time += dt;
     
+    const oldX = this.player.x;
+    const oldY = this.player.y;
     this.player.update(this.keys, dt);
+
+    this.obstacles.forEach(obs => {
+      const dx = (this.player.x + this.player.width/2) - obs.centerX;
+      const dy = (this.player.y + this.player.height/2) - obs.centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 20 + obs.radius) {
+        this.player.x = oldX;
+        this.player.y = oldY;
+      }
+    });
+
+    // Item Pickup
+    for (let i = this.items.length - 1; i >= 0; i--) {
+      const item = this.items[i];
+      if (item.checkCollision(this.player.x, this.player.y, this.player.width, this.player.height)) {
+        if (item.type === ItemType.FOOD) {
+          this.player.hp = Math.min(this.player.maxHp, this.player.hp + 5);
+          this.particles.emit(this.player.x + this.player.width/2, this.player.y + this.player.height/2, '#00ff00', 10);
+        }
+        this.items.splice(i, 1);
+      }
+    }
+
     this.projectiles.update(dt);
     this.particles.update(dt);
     
@@ -156,14 +204,29 @@ export class GameEngine {
       projectiles: this.projectiles,
       particles: this.particles,
       dt,
-      now
+      now,
+      targetsTaken: []
     });
 
-    if (this.enemies.length < 20 + this.gameState.level * 5) {
+    if (this.enemies.length < 25 + this.gameState.level * 3) {
       this.spawnEnemy();
     }
 
-    this.enemies.forEach(e => e.update(this.player, dt));
+    this.enemies.forEach(e => {
+      const oldEx = e.x;
+      const oldEy = e.y;
+      e.update(this.player, dt);
+
+      this.obstacles.forEach(obs => {
+        const dx = (e.x + e.width/2) - obs.centerX;
+        const dy = (e.y + e.height/2) - obs.centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 15 + obs.radius) {
+          e.x = oldEx;
+          e.y = oldEy;
+        }
+      });
+    });
 
     this.projectiles.checkCollisions(this.enemies as any, (enemy, p) => {
       enemy.hp -= p.damage;
@@ -202,7 +265,14 @@ export class GameEngine {
     const dist = Math.max(this.canvas.width, this.canvas.height) * 0.7;
     const x = this.player.x + Math.cos(angle) * dist;
     const y = this.player.y + Math.sin(angle) * dist;
-    const type = Math.random() > 0.3 ? ENEMY_TYPES.runner : ENEMY_TYPES.skeleton;
+    
+    // Choose enemy type based on probability
+    const r = Math.random();
+    let type = EnemyType.RUNNER;
+    if (r < 0.1) type = EnemyType.ZOMBIE;
+    else if (r < 0.3) type = EnemyType.SKELETON;
+    else if (r < 0.5) type = EnemyType.BAT;
+    
     this.enemies.push(new Enemy(x, y, type));
   }
 
@@ -213,6 +283,11 @@ export class GameEngine {
       this.gameState.xp += enemy.xpValue;
       this.particles.emit(enemy.x + enemy.width/2, enemy.y + enemy.height/2, '#ffd700', 15);
       
+      // Chance to drop food (10%)
+      if (Math.random() < 0.1) {
+        this.items.push(new Item(enemy.x, enemy.y, ItemType.FOOD));
+      }
+
       if (this.gameState.xp >= this.gameState.xpToNext) {
         this.levelUp();
       }
@@ -222,7 +297,7 @@ export class GameEngine {
   private levelUp() {
     this.gameState.level++;
     this.gameState.xp = 0;
-    this.gameState.xpToNext = Math.floor(this.gameState.xpToNext * 1.4);
+    this.gameState.xpToNext = Math.floor(this.gameState.xpToNext * 1.5);
     this.gameState.isPaused = true;
     
     const modal = document.getElementById('level-up-modal')!;
@@ -232,14 +307,18 @@ export class GameEngine {
     const choices = this.abilities.getAvailableAbilities();
     choices.forEach(choice => {
       const card = document.createElement('div');
-      card.className = 'choice-card';
+      const rarity = this.getRandomRarity();
+      card.className = `choice-card rarity-${rarity}`;
+      
       const existing = this.abilities.activeAbilities.find(a => a.id === choice.id);
-      const levelText = existing ? `Nivel ${existing.level} -> ${existing.level + 1}` : 'Nueva Habilidad';
+      const levelText = existing ? `NV ${existing.level} → ${existing.level + 1}` : 'NUEVA';
       
       card.innerHTML = `
+        <div class="rarity-badge">${rarity.toUpperCase()}</div>
         <div class="choice-info">
-          <h3>${choice.name} <span style="font-size: 0.7rem; opacity: 0.7;">(${levelText})</span></h3>
-          <p>${choice.description}</p>
+          <h3>${choice.name}</h3>
+          <p class="ability-level">${levelText}</p>
+          <p class="ability-desc">${choice.description}</p>
         </div>
       `;
       card.onclick = () => {
@@ -253,6 +332,13 @@ export class GameEngine {
     modal.style.display = 'flex';
   }
 
+  private getRandomRarity(): string {
+    const r = Math.random();
+    if (r < 0.1) return 'legendary';
+    if (r < 0.3) return 'rare';
+    return 'common';
+  }
+
   private gameOver() {
     this.gameState.isGameOver = true;
     const screen = document.getElementById('game-over-screen')!;
@@ -263,10 +349,16 @@ export class GameEngine {
 
   private updateHUD() {
     const xpFill = document.getElementById('xp-fill');
-    if (xpFill) xpFill.style.width = `${(this.gameState.xp / this.gameState.xpToNext) * 100}%`;
+    if (xpFill) {
+        const xpRatio = (this.gameState.xp / this.gameState.xpToNext) * 100;
+        xpFill.style.width = `${xpRatio}%`;
+    }
     
     const hpFill = document.getElementById('hp-fill');
-    if (hpFill) hpFill.style.width = `${(this.player.hp / this.player.maxHp) * 100}%`;
+    if (hpFill) {
+        const hpRatio = (this.player.hp / this.player.maxHp) * 100;
+        hpFill.style.width = `${hpRatio}%`;
+    }
 
     const timer = document.getElementById('timer');
     if (timer) {
@@ -302,6 +394,8 @@ export class GameEngine {
       }
     }
 
+    this.obstacles.forEach(o => o.draw(this.ctx));
+    this.items.forEach(i => i.draw(this.ctx, now));
     this.enemies.forEach(e => e.draw(this.ctx));
     this.projectiles.draw(this.ctx);
     this.particles.draw(this.ctx);
