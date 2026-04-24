@@ -25,28 +25,28 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyConfig> = {
     type: EnemyType.RUNNER,
     hp: 3,
     speed: 1.2,
-    xpValue: 2,
+    xpValue: 1, // Reduced XP
     asset: 'orc',
     width: 32,
     height: 32,
-    frames: 24, // Trying 24 as a more standard number
+    frames: 24,
     isSheet: true
   },
   [EnemyType.SKELETON]: {
     type: EnemyType.SKELETON,
     hp: 8,
     speed: 0.7,
-    xpValue: 5,
+    xpValue: 2, // Reduced XP
     asset: 'skeleton',
     width: 40,
     height: 48,
-    frames: 14, // Skeleton seems to have 14
+    frames: 14,
     isSheet: true
   },
   [EnemyType.BAT]: {
     type: EnemyType.BAT,
     hp: 2,
-    speed: 2.2, // Faster
+    speed: 2.2,
     xpValue: 1,
     asset: 'bat',
     width: 32,
@@ -58,7 +58,7 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyConfig> = {
     type: EnemyType.ZOMBIE,
     hp: 15,
     speed: 0.5,
-    xpValue: 10,
+    xpValue: 4, // Reduced XP
     asset: 'zombie',
     width: 32,
     height: 40,
@@ -81,12 +81,16 @@ export class Enemy {
   private frameTimer: number = 0;
   private frameSpeed: number = 0.1;
 
-  constructor(x: number, y: number, type: EnemyType = EnemyType.RUNNER) {
+  constructor(x: number, y: number, type: EnemyType = EnemyType.RUNNER, difficultyMultiplier: number = 1.0) {
     this.config = ENEMY_TYPES[type];
     this.x = x;
     this.y = y;
-    this.hp = this.config.hp;
-    this.maxHp = this.config.hp;
+    
+    // Scaling HP based on difficulty (time passed)
+    const scaledHp = Math.floor(this.config.hp * difficultyMultiplier);
+    this.hp = scaledHp;
+    this.maxHp = scaledHp;
+    
     this.width = this.config.width;
     this.height = this.config.height;
     this.xpValue = this.config.xpValue;
@@ -103,7 +107,6 @@ export class Enemy {
       this.y += (dy / dist) * this.config.speed * dt * 100;
     }
 
-    // Animation
     this.frameTimer += dt;
     if (this.frameTimer >= this.frameSpeed) {
       this.currentFrame = (this.currentFrame + 1) % this.config.frames;
@@ -117,14 +120,9 @@ export class Enemy {
 
     ctx.save();
     
-    // For generated assets with white background, we try to skip drawing white pixels
-    // Note: This is an expensive trick but helpful if we can't regenerate
     if (this.config.type === EnemyType.BAT || this.config.type === EnemyType.ZOMBIE) {
-        // Simple bobbing for single frames
         const bob = Math.sin(Date.now() / 200) * 5;
         ctx.translate(0, bob);
-        
-        // Use multiply to hide white background against the terrain
         ctx.globalCompositeOperation = 'multiply';
         ctx.drawImage(img, this.x, this.y, this.width, this.height);
         ctx.globalCompositeOperation = 'source-over';
@@ -139,13 +137,11 @@ export class Enemy {
         this.width, this.height
       );
     } else {
-      // Draw single frame
       ctx.drawImage(img, this.x, this.y, this.width, this.height);
     }
 
     ctx.restore();
 
-    // Health bar above enemy
     if (this.hp < this.maxHp) {
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
       ctx.fillRect(this.x, this.y - 8, this.width, 4);
@@ -154,9 +150,8 @@ export class Enemy {
     }
   }
 
-  // Hitbox for collisions - increased for Bats
   public get hitbox() {
-    const padding = this.config.type === EnemyType.BAT ? -10 : 5; // Negative padding = larger hitbox
+    const padding = this.config.type === EnemyType.BAT ? -10 : 5;
     return {
       x: this.x + padding,
       y: this.y + padding,

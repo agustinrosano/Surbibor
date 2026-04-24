@@ -202,6 +202,65 @@ canvas {
   overflow: hidden;
 }
 
+.abilities-hud {
+  position: absolute;
+  top: 30px;
+  left: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.ability-slot {
+  width: 45px;
+  height: 45px;
+  background: rgba(43, 31, 23, 0.9);
+  border: 2px solid #d4af37;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+}
+
+.ability-slot .lvl-badge {
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+  background: #d4af37;
+  color: #1a140f;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: 'MedievalSharp', cursive;
+}
+
+.ability-slot i, .ability-slot span {
+  font-size: 1.2rem;
+  color: #fdd835;
+}
+
+.minimap-wrapper {
+  position: absolute;
+  bottom: 80px;
+  right: 30px;
+  width: 150px;
+  height: 150px;
+  background: rgba(26, 20, 15, 0.85);
+  border: 3px solid #3e2723;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(0,0,0,0.8), inset 0 0 10px rgba(212, 175, 55, 0.2);
+  z-index: 100;
+}
+
+#minimap {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
 .hp-bar-fill {
   height: 100%;
   width: 100%;

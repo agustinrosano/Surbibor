@@ -11,6 +11,10 @@ import { AssetLoader } from './AssetLoader';
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private minimapCanvas: HTMLCanvasElement;
+  private minimapCtx: CanvasRenderingContext2D;
+  public network = new NetworkManager();
+  private otherPlayers: Map<string, Player> = new Map();
   private lastTime: number = 0;
   private running: boolean = false;
   
@@ -25,7 +29,7 @@ export class GameEngine {
   private gameState: GameState = {
     level: 1,
     xp: 0,
-    xpToNext: 10,
+    xpToNext: 15, // Increased initial XP requirement
     time: 0,
     pendingLevelUps: 0,
     isPaused: false,
@@ -40,6 +44,8 @@ export class GameEngine {
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     this.ctx = this.canvas.getContext('2d')!;
+    this.minimapCanvas = document.getElementById('minimap') as HTMLCanvasElement;
+    this.minimapCtx = this.minimapCanvas.getContext('2d')!;
     this.setupResize();
     this.setupInputs();
   }
@@ -90,7 +96,7 @@ export class GameEngine {
     this.gameState = {
       level: 1,
       xp: 0,
-      xpToNext: 10,
+      xpToNext: 15,
       time: 0,
       pendingLevelUps: 0,
       isPaused: false,
@@ -183,9 +189,14 @@ export class GameEngine {
       }
     });
 
-    // Item Pickup
+    // Item Pickup & Expiration
     for (let i = this.items.length - 1; i >= 0; i--) {
       const item = this.items[i];
+      if (item.update(dt)) {
+        this.items.splice(i, 1);
+        continue;
+      }
+
       if (item.checkCollision(this.player.x, this.player.y, this.player.width, this.player.height)) {
         if (item.type === ItemType.FOOD) {
           this.player.hp = Math.min(this.player.maxHp, this.player.hp + 5);
@@ -208,8 +219,24 @@ export class GameEngine {
       targetsTaken: []
     });
 
-    if (this.enemies.length < 25 + this.gameState.level * 3) {
-      this.spawnEnemy();
+    // Multiplayer sync
+    if (this.network.roomId) {
+        this.network.sendMovement({
+            x: this.player.x,
+            y: this.player.y,
+            hp: this.player.hp,
+            anim: (this.player as any).currentFrame
+        });
+    }
+
+    // Difficulty Factor: Grows every 30 seconds
+    const difficultyMultiplier = 1.0 + Math.floor(this.gameState.time / 30) * 0.2;
+
+    // Scale enemy limit by player count
+    const playerCount = 1 + this.network.players.size;
+    const enemyLimit = (40 + Math.floor(this.gameState.time / 20) * 5) * playerCount;
+    if (this.enemies.length < enemyLimit) {
+      this.spawnEnemy(difficultyMultiplier);
     }
 
     this.enemies.forEach(e => {
@@ -260,20 +287,19 @@ export class GameEngine {
     this.updateHUD();
   }
 
-  private spawnEnemy() {
+  private spawnEnemy(difficultyMultiplier: number = 1.0) {
     const angle = Math.random() * Math.PI * 2;
     const dist = Math.max(this.canvas.width, this.canvas.height) * 0.7;
     const x = this.player.x + Math.cos(angle) * dist;
     const y = this.player.y + Math.sin(angle) * dist;
     
-    // Choose enemy type based on probability
     const r = Math.random();
     let type = EnemyType.RUNNER;
     if (r < 0.1) type = EnemyType.ZOMBIE;
     else if (r < 0.3) type = EnemyType.SKELETON;
     else if (r < 0.5) type = EnemyType.BAT;
     
-    this.enemies.push(new Enemy(x, y, type));
+    this.enemies.push(new Enemy(x, y, type, difficultyMultiplier));
   }
 
   private onEnemyKilled(enemy: Enemy) {
@@ -283,8 +309,8 @@ export class GameEngine {
       this.gameState.xp += enemy.xpValue;
       this.particles.emit(enemy.x + enemy.width/2, enemy.y + enemy.height/2, '#ffd700', 15);
       
-      // Chance to drop food (10%)
-      if (Math.random() < 0.1) {
+      // Reduced drop rate (3%)
+      if (Math.random() < 0.03) {
         this.items.push(new Item(enemy.x, enemy.y, ItemType.FOOD));
       }
 
@@ -297,7 +323,7 @@ export class GameEngine {
   private levelUp() {
     this.gameState.level++;
     this.gameState.xp = 0;
-    this.gameState.xpToNext = Math.floor(this.gameState.xpToNext * 1.5);
+    this.gameState.xpToNext = Math.floor(this.gameState.xpToNext * 1.6);
     this.gameState.isPaused = true;
     
     const modal = document.getElementById('level-up-modal')!;
@@ -347,7 +373,35 @@ export class GameEngine {
     screen.style.display = 'flex';
   }
 
+  private updateAbilitiesHUD() {
+    const hud = document.getElementById('abilities-hud');
+    if (!hud) return;
+
+    const abilityIcons: Record<string, string> = {
+      'basic_shot': '🏹',
+      'magic_shot': '🔮',
+      'whip': '⚔️',
+      'aura': '✨',
+      'lightning': '⚡',
+      'armor_up': '🛡️',
+      'speed_up': '👟'
+    };
+
+    const currentHtml = this.abilities.activeAbilities.map(a => `
+      <div class="ability-slot">
+        <span>${abilityIcons[a.id] || '?'}</span>
+        <div class="lvl-badge">${a.level}</div>
+      </div>
+    `).join('');
+
+    if (hud.innerHTML !== currentHtml) {
+      hud.innerHTML = currentHtml;
+    }
+  }
+
   private updateHUD() {
+    this.updateAbilitiesHUD();
+    
     const xpFill = document.getElementById('xp-fill');
     if (xpFill) {
         const xpRatio = (this.gameState.xp / this.gameState.xpToNext) * 100;
@@ -406,11 +460,107 @@ export class GameEngine {
         projectiles: this.projectiles,
         particles: this.particles,
         dt: 0,
-        now
+        now,
+        targetsTaken: []
     };
     this.abilities.draw(this.ctx, abilityCtx);
     this.player.draw(this.ctx, now);
+
+    // Draw Other Players
+    this.network.players.forEach((p) => {
+        // Simple representation for now or we could spawn a full Player object
+        const sprite = AssetLoader.getImage(p.charType === 'soldier' ? 'soldier' : 'soldier'); // Placeholder
+        if (sprite) {
+            this.ctx.globalAlpha = 0.8;
+            this.ctx.drawImage(sprite, 0, 0, 32, 64, p.x, p.y, 32, 64);
+            this.ctx.globalAlpha = 1.0;
+            
+            // Health Bar for other player
+            this.ctx.fillStyle = '#b22222';
+            this.ctx.fillRect(p.x, p.y + 70, (p.hp / p.maxHp) * 32, 5);
+        }
+    });
     
     this.ctx.restore();
+
+    this.drawMinimap();
+  }
+
+  private drawMinimap() {
+    const mCtx = this.minimapCtx;
+    const mCanvas = this.minimapCanvas;
+    const centerX = mCanvas.width / 2;
+    const centerY = mCanvas.height / 2;
+    const range = 1500; // Total world units shown on minimap
+    const scale = mCanvas.width / range;
+
+    mCtx.clearRect(0, 0, mCanvas.width, mCanvas.height);
+
+    // Draw background/border
+    mCtx.fillStyle = 'rgba(26, 20, 15, 0.5)';
+    mCtx.beginPath();
+    mCtx.arc(centerX, centerY, mCanvas.width/2, 0, Math.PI * 2);
+    mCtx.fill();
+
+    // Player 1 (Orange Dot)
+    mCtx.fillStyle = '#ff9800';
+    mCtx.beginPath();
+    mCtx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+    mCtx.fill();
+
+    // Other Players (Blue Dot)
+    this.network.players.forEach(p => {
+        const dx = p.x - this.player.x;
+        const dy = p.y - this.player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist < range / 2) {
+            mCtx.fillStyle = '#2196f3'; // Blue
+            mCtx.beginPath();
+            mCtx.arc(centerX + dx * scale, centerY + dy * scale, 4, 0, Math.PI * 2);
+            mCtx.fill();
+        } else if (dist < range * 2) {
+            this.drawMinimapArrow(mCtx, centerX, centerY, dx, dy, '#2196f3');
+        }
+    });
+
+    // Items (Food - Brown Dot)
+    this.items.forEach(item => {
+      const dx = item.x - this.player.x;
+      const dy = item.y - this.player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < range / 2) {
+        // Within map
+        mCtx.fillStyle = '#795548'; // Brown
+        mCtx.beginPath();
+        mCtx.arc(centerX + dx * scale, centerY + dy * scale, 3, 0, Math.PI * 2);
+        mCtx.fill();
+      } else if (dist < range * 2) {
+        // Out of range - draw arrow
+        this.drawMinimapArrow(mCtx, centerX, centerY, dx, dy, '#795548');
+      }
+    });
+
+    // In a future multiplayer update, we would draw Player 2 here in Blue
+  }
+
+  private drawMinimapArrow(ctx: CanvasRenderingContext2D, cx: number, cy: number, dx: number, dy: number, color: string) {
+    const angle = Math.atan2(dy, dx);
+    const radius = this.minimapCanvas.width / 2 - 8;
+    const arrowX = cx + Math.cos(angle) * radius;
+    const arrowY = cy + Math.sin(angle) * radius;
+
+    ctx.save();
+    ctx.translate(arrowX, arrowY);
+    ctx.rotate(angle);
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-8, -5);
+    ctx.lineTo(-8, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 }

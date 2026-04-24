@@ -38,6 +38,20 @@ charCards.forEach(card => {
       
       await engine.init();
       engine.reset(charType);
+
+      // Join room if intent exists
+      const roomId = (window as any).nextRoomId;
+      if (roomId) {
+          engine.network.joinRoom(roomId, {
+              charType,
+              hp: 20,
+              maxHp: 20,
+              x: 0,
+              y: 0
+          });
+          (window as any).nextRoomId = null;
+      }
+      
       engine.start();
     }
   });
@@ -68,9 +82,39 @@ if (retryBtn) {
 }
 
 // Multiplayer Modal logic
+const createRoomBtn = document.getElementById('create-room-btn');
+const joinRoomBtn = document.getElementById('join-room-btn');
+const roomIdInput = document.getElementById('room-id') as HTMLInputElement;
+
 if (multiBtn && multiModal) {
   multiBtn.addEventListener('click', () => {
     multiModal.style.display = 'flex';
+  });
+}
+
+if (createRoomBtn && multiModal) {
+  createRoomBtn.addEventListener('click', () => {
+    const roomId = roomIdInput.value || Math.random().toString(36).substring(7);
+    multiModal.style.display = 'none';
+    if (mainMenu) mainMenu.style.display = 'none';
+    if (characterSelection) characterSelection.style.display = 'flex';
+    
+    // Store room intent
+    (window as any).nextRoomId = roomId;
+  });
+}
+
+if (joinRoomBtn && multiModal) {
+  joinRoomBtn.addEventListener('click', () => {
+    const roomId = roomIdInput.value;
+    if (!roomId) {
+      alert('Ingresa un ID de sala');
+      return;
+    }
+    multiModal.style.display = 'none';
+    if (mainMenu) mainMenu.style.display = 'none';
+    if (characterSelection) characterSelection.style.display = 'flex';
+    (window as any).nextRoomId = roomId;
   });
 }
 

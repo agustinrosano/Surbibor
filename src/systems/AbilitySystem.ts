@@ -10,7 +10,7 @@ export interface AbilityContext {
   particles: ParticleSystem;
   dt: number;
   now: number;
-  targetsTaken: Enemy[]; // To prevent multiple abilities targeting same enemy
+  targetsTaken: Enemy[];
 }
 
 export abstract class Ability {
@@ -64,8 +64,7 @@ export class BasicShot extends Ability {
     const dy = target.y + target.height/2 - (ctx.player.y + ctx.player.height/2);
     const dist = Math.sqrt(dx * dx + dy * dy);
     
-    // Lowered base speed, scales with level
-    const speed = 350 + this.level * 40;
+    const speed = 300 + this.level * 40;
     const vx = (dx / dist) * speed;
     const vy = (dy / dist) * speed;
 
@@ -80,7 +79,7 @@ export class BasicShot extends Ability {
             vx: vx,
             vy: vy,
             radius: 5,
-            damage: 3 + this.level * 2,
+            damage: 2 + this.level * 1.5, // Reduced damage
             life: 1.2 + this.level * 0.4,
             color: '#ffffff',
             type: ProjectileType.ARROW
@@ -88,7 +87,7 @@ export class BasicShot extends Ability {
     }
 
     ctx.particles.emit(ctx.player.x + ctx.player.width/2, ctx.player.y + ctx.player.height, '#ffffff', 2);
-    this.cooldownTimer = Math.max(0.1, 0.45 - this.level * 0.05);
+    this.cooldownTimer = Math.max(0.1, 0.5 - this.level * 0.05);
   }
 
   public draw() {}
@@ -111,8 +110,7 @@ export class MagicShot extends Ability {
       const dy = target.y + target.height/2 - (ctx.player.y + ctx.player.height/2);
       const dist = Math.sqrt(dx * dx + dy * dy);
       
-      // Lowered base speed, scales with level
-      const speed = 400 + this.level * 50;
+      const speed = 350 + this.level * 50;
       const vx = (dx / dist) * speed;
       const vy = (dy / dist) * speed;
   
@@ -127,7 +125,7 @@ export class MagicShot extends Ability {
               vx: vx,
               vy: vy,
               radius: 6,
-              damage: 4 + this.level * 2,
+              damage: 3 + this.level * 1.5, // Reduced damage
               life: 1.0 + this.level * 0.3,
               color: '#00e5ff',
               type: ProjectileType.MAGIC
@@ -157,7 +155,7 @@ export class WhipAbility extends Ability {
 
     this.attackDir = { ...ctx.player.lastDirection };
     const range = 120 + this.level * 20;
-    const damage = 5 + this.level * 3;
+    const damage = 3 + this.level * 2; // Reduced damage
     
     this.performAttack(ctx, this.attackDir, range, damage);
 
@@ -165,7 +163,7 @@ export class WhipAbility extends Ability {
       this.performAttack(ctx, { x: -this.attackDir.x, y: -this.attackDir.y }, range, damage);
     }
 
-    this.cooldownTimer = Math.max(0.3, 1.0 - this.level * 0.12);
+    this.cooldownTimer = Math.max(0.3, 1.1 - this.level * 0.1);
     this.visualTimer = 0.15;
   }
 
@@ -249,7 +247,7 @@ export class AuraAbility extends Ability {
     if (!this.active) return;
 
     const range = 110 + this.level * 15;
-    const damagePerSec = 3 + this.level * 2;
+    const damagePerSec = 2 + this.level * 1.5; // Reduced damage
     
     ctx.enemies.forEach(e => {
       const dx = (e.x + e.width/2) - (ctx.player.x + ctx.player.width/2);
@@ -298,7 +296,7 @@ export class LightningAbility extends Ability {
     if (!currentTarget) return;
 
     const jumps = 1 + this.level;
-    const damage = 4 + this.level * 2;
+    const damage = 3 + this.level * 1.5; // Reduced damage
     
     let lastX = ctx.player.x + ctx.player.width/2;
     let lastY = ctx.player.y + ctx.player.height/2;
