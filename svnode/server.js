@@ -4,16 +4,21 @@ const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
+
+// CORS Configuration: Only allow your Vercel URL and localhost for development
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: [
+      "https://surbibor-zl6b.vercel.app", 
+      "http://localhost:5173"
+    ],
     methods: ["GET", "POST"]
   }
 });
 
-const PORT = 3000;
+// Port provided by Render or default to 3000
+const PORT = process.env.PORT || 3000;
 
-// Game State in memory
 let rooms = {};
 
 io.on('connection', (socket) => {
@@ -35,9 +40,8 @@ io.on('connection', (socket) => {
       ...playerData
     };
 
-    // Update room list for everyone in the room
     io.to(roomId).emit('player-joined', rooms[roomId].players);
-    console.log(`Player ${socket.id} joined room ${roomId} as ${playerData.charType}`);
+    console.log(`Player ${socket.id} joined room ${roomId}`);
   });
 
   socket.on('player-move', (roomId, moveData) => {
@@ -47,6 +51,7 @@ io.on('connection', (socket) => {
       p.y = moveData.y;
       p.anim = moveData.anim;
       p.hp = moveData.hp;
+      p.abilities = moveData.abilities || [];
       
       socket.to(roomId).emit('player-moved', {
         id: socket.id,
@@ -56,31 +61,25 @@ io.on('connection', (socket) => {
   });
 
   socket.on('sync-enemies', (roomId, enemyData) => {
-    // Only relay enemy data from the host
     if (rooms[roomId] && rooms[roomId].hostId === socket.id) {
       socket.to(roomId).emit('enemies-update', enemyData);
     }
   });
 
   socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
     for (const roomId in rooms) {
       if (rooms[roomId].players[socket.id]) {
         delete rooms[roomId].players[socket.id];
         
-        // If host left, assign new host
         if (rooms[roomId].hostId === socket.id) {
           const remainingIds = Object.keys(rooms[roomId].players);
           if (remainingIds.length > 0) {
             rooms[roomId].hostId = remainingIds[0];
-            console.log(`New host for room ${roomId}: ${rooms[roomId].hostId}`);
           } else {
             delete rooms[roomId];
-            console.log(`Room ${roomId} deleted`);
             continue;
           }
         }
-        
         io.to(roomId).emit('player-left', socket.id);
       }
     }
@@ -88,5 +87,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`BubbaSurvivor Multi-Server running on port ${PORT}`);
+  console.log(`BubbaSurvivor Server live on port ${PORT}`);
 });

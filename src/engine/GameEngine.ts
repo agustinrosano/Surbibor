@@ -7,6 +7,7 @@ import { ProjectileSystem } from '../systems/ProjectileSystem';
 import { ParticleSystem } from '../systems/ParticleSystem';
 import { AbilitySystem, BasicShot, WhipAbility } from '../systems/AbilitySystem';
 import { AssetLoader } from './AssetLoader';
+import { NetworkManager } from './NetworkManager';
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
@@ -209,14 +210,17 @@ export class GameEngine {
     this.projectiles.update(dt);
     this.particles.update(dt);
     
-    this.abilities.update({
-      player: this.player,
-      enemies: this.enemies,
-      projectiles: this.projectiles,
-      particles: this.particles,
-      dt,
-      now,
-      targetsTaken: []
+    // Enemies logic
+    const allPlayers = [this.player];
+    this.network.players.forEach(p => {
+        // Create a temporary player object for AI targeting
+        const tempP = new Player(p.x, p.y, { speed: 0, maxHp: p.maxHp, armor: 0 });
+        tempP.hp = p.hp;
+        allPlayers.push(tempP);
+    });
+
+    this.enemies.forEach(e => {
+      e.update(allPlayers, dt, this.obstacles);
     });
 
     // Multiplayer sync
@@ -225,34 +229,27 @@ export class GameEngine {
             x: this.player.x,
             y: this.player.y,
             hp: this.player.hp,
-            anim: (this.player as any).currentFrame
+            abilities: this.abilities.activeAbilities.map(a => ({ id: a.id, level: a.level }))
         });
     }
 
-    // Difficulty Factor: Grows every 30 seconds
+    // Restore Enemy Spawning & Difficulty
     const difficultyMultiplier = 1.0 + Math.floor(this.gameState.time / 30) * 0.2;
-
-    // Scale enemy limit by player count
     const playerCount = 1 + this.network.players.size;
     const enemyLimit = (40 + Math.floor(this.gameState.time / 20) * 5) * playerCount;
     if (this.enemies.length < enemyLimit) {
       this.spawnEnemy(difficultyMultiplier);
     }
-
-    this.enemies.forEach(e => {
-      const oldEx = e.x;
-      const oldEy = e.y;
-      e.update(this.player, dt);
-
-      this.obstacles.forEach(obs => {
-        const dx = (e.x + e.width/2) - obs.centerX;
-        const dy = (e.y + e.height/2) - obs.centerY;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 15 + obs.radius) {
-          e.x = oldEx;
-          e.y = oldEy;
-        }
-      });
+    
+    // Update local abilities
+    this.abilities.update({
+        player: this.player,
+        enemies: this.enemies,
+        projectiles: this.projectiles,
+        particles: this.particles,
+        dt,
+        now,
+        targetsTaken: []
     });
 
     this.projectiles.checkCollisions(this.enemies as any, (enemy, p) => {
@@ -468,16 +465,35 @@ export class GameEngine {
 
     // Draw Other Players
     this.network.players.forEach((p) => {
-        // Simple representation for now or we could spawn a full Player object
-        const sprite = AssetLoader.getImage(p.charType === 'soldier' ? 'soldier' : 'soldier'); // Placeholder
+        const sprite = AssetLoader.getImage(p.charType === 'soldier' ? 'soldier' : 'soldier');
         if (sprite) {
             this.ctx.globalAlpha = 0.8;
             this.ctx.drawImage(sprite, 0, 0, 32, 64, p.x, p.y, 32, 64);
             this.ctx.globalAlpha = 1.0;
             
-            // Health Bar for other player
+            // Health Bar
             this.ctx.fillStyle = '#b22222';
             this.ctx.fillRect(p.x, p.y + 70, (p.hp / p.maxHp) * 32, 5);
+
+            // Draw Their Abilities (Visuals)
+            p.abilities?.forEach(abData => {
+                const ab = this.abilities.getAvailableAbilities().find(a => a.id === abData.id);
+                if (ab) {
+                    ab.level = abData.level;
+                    // Create temp context for drawing
+                    const tempP = new Player(p.x, p.y, { speed: 0, maxHp: p.maxHp, armor: 0 });
+                    tempP.lastDirection = { x: 1, y: 0 }; // Default
+                    ab.draw(this.ctx, {
+                        player: tempP,
+                        enemies: this.enemies,
+                        projectiles: this.projectiles,
+                        particles: this.particles,
+                        dt: 0,
+                        now: now,
+                        targetsTaken: []
+                    });
+                }
+            });
         }
     });
     

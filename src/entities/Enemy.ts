@@ -25,7 +25,7 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyConfig> = {
     type: EnemyType.RUNNER,
     hp: 3,
     speed: 1.2,
-    xpValue: 1, // Reduced XP
+    xpValue: 1,
     asset: 'orc',
     width: 32,
     height: 32,
@@ -36,7 +36,7 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyConfig> = {
     type: EnemyType.SKELETON,
     hp: 8,
     speed: 0.7,
-    xpValue: 2, // Reduced XP
+    xpValue: 2,
     asset: 'skeleton',
     width: 40,
     height: 48,
@@ -58,7 +58,7 @@ export const ENEMY_TYPES: Record<EnemyType, EnemyConfig> = {
     type: EnemyType.ZOMBIE,
     hp: 15,
     speed: 0.5,
-    xpValue: 4, // Reduced XP
+    xpValue: 4,
     asset: 'zombie',
     width: 32,
     height: 40,
@@ -86,7 +86,6 @@ export class Enemy {
     this.x = x;
     this.y = y;
     
-    // Scaling HP based on difficulty (time passed)
     const scaledHp = Math.floor(this.config.hp * difficultyMultiplier);
     this.hp = scaledHp;
     this.maxHp = scaledHp;
@@ -97,14 +96,44 @@ export class Enemy {
     this.currentFrame = Math.floor(Math.random() * this.config.frames);
   }
 
-  public update(player: Player, dt: number) {
-    const dx = (player.x + player.width / 2) - (this.x + this.width / 2);
-    const dy = (player.y + player.height / 2) - (this.y + this.height / 2);
+  public update(players: Player[], dt: number, obstacles: any[]) {
+    // Find nearest player
+    let targetPlayer = players[0];
+    let minDist = Infinity;
+    
+    players.forEach(p => {
+        const dx = (p.x + p.width / 2) - (this.x + this.width / 2);
+        const dy = (p.y + p.height / 2) - (this.y + this.height / 2);
+        const dist = dx * dx + dy * dy;
+        if (dist < minDist) {
+            minDist = dist;
+            targetPlayer = p;
+        }
+    });
+
+    const dx = (targetPlayer.x + targetPlayer.width / 2) - (this.x + this.width / 2);
+    const dy = (targetPlayer.y + targetPlayer.height / 2) - (this.y + this.height / 2);
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist > 5) {
-      this.x += (dx / dist) * this.config.speed * dt * 100;
-      this.y += (dy / dist) * this.config.speed * dt * 100;
+      let moveX = (dx / dist) * this.config.speed * dt * 100;
+      let moveY = (dy / dist) * this.config.speed * dt * 100;
+      
+      // Simple Obstacle Avoidance (Steering)
+      obstacles.forEach(obs => {
+          const obsDx = (this.x + this.width/2) - obs.centerX;
+          const obsDy = (this.y + this.height/2) - obs.centerY;
+          const obsDist = Math.sqrt(obsDx * obsDx + obsDy * obsDy);
+          
+          if (obsDist < 40 + obs.radius) {
+              // Push away from obstacle
+              moveX += (obsDx / obsDist) * 2;
+              moveY += (obsDy / obsDist) * 2;
+          }
+      });
+
+      this.x += moveX;
+      this.y += moveY;
     }
 
     this.frameTimer += dt;

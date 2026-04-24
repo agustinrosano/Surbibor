@@ -8,6 +8,7 @@ export interface NetworkPlayer {
   maxHp: number;
   charType: string;
   anim: number;
+  abilities: any[];
 }
 
 export class NetworkManager {
@@ -16,19 +17,28 @@ export class NetworkManager {
   public roomId: string | null = null;
   public players: Map<string, NetworkPlayer> = new Map();
   
-  // Callbacks for the engine
   public onPlayerJoined?: (p: NetworkPlayer) => void;
   public onPlayerLeft?: (id: string) => void;
   public onEnemySync?: (data: any) => void;
 
-  constructor(serverUrl: string = 'http://localhost:3000') {
-    this.socket = io(serverUrl, { autoConnect: false });
+  constructor() {
+    // AUTO-DETECT URL: Localhost for dev, Render URL for production
+    const isLocal = window.location.hostname === 'localhost';
+    
+    // CAMBIA ESTA URL por la que te de Render cuando crees el servicio
+    const PROD_URL = 'https://mi-servidor-buba.onrender.com'; 
+    const SERVER_URL = isLocal ? 'http://localhost:3000' : PROD_URL;
+
+    this.socket = io(SERVER_URL, { 
+        autoConnect: false,
+        transports: ['websocket'] // Preferred for games
+    });
+    
     this.setupListeners();
   }
 
   private setupListeners() {
     this.socket.on('player-joined', (allPlayers: Record<string, NetworkPlayer>) => {
-      // The first player in the room is the host (simple logic)
       const ids = Object.keys(allPlayers);
       if (ids[0] === this.socket.id) {
         this.isHost = true;
@@ -50,6 +60,7 @@ export class NetworkManager {
         p.y = data.y;
         p.anim = data.anim;
         p.hp = data.hp;
+        p.abilities = data.abilities || [];
       }
     });
 
@@ -72,13 +83,13 @@ export class NetworkManager {
   }
 
   public sendMovement(data: any) {
-    if (this.roomId) {
+    if (this.roomId && this.socket.connected) {
       this.socket.emit('player-move', this.roomId, data);
     }
   }
 
   public syncEnemies(enemies: any[]) {
-    if (this.isHost && this.roomId) {
+    if (this.isHost && this.roomId && this.socket.connected) {
       this.socket.emit('sync-enemies', this.roomId, enemies);
     }
   }
