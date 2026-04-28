@@ -2,7 +2,7 @@ import './styles/index.css';
 import { GameEngine } from './engine/GameEngine';
 
 const engine = new GameEngine('gameCanvas');
-
+// tobi tobi tobi
 const startBtn = document.getElementById('start-game');
 const mainMenu = document.getElementById('main-menu');
 const characterSelection = document.getElementById('character-selection');
