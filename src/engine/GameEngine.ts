@@ -1,6 +1,5 @@
-import { GameState, Point } from './GameEngine';
 import { Player } from '../entities/Player';
-import { Enemy, ENEMY_TYPES, EnemyType } from '../entities/Enemy';
+import { Enemy, EnemyType } from '../entities/Enemy';
 import { Obstacle, ObstacleType } from '../entities/Obstacle';
 import { Item, ItemType } from '../entities/Item';
 import { ProjectileSystem } from '../systems/ProjectileSystem';
@@ -9,13 +8,34 @@ import { AbilitySystem, BasicShot, WhipAbility } from '../systems/AbilitySystem'
 import { AssetLoader } from './AssetLoader';
 import { NetworkManager } from './NetworkManager';
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface GameState {
+  level: number;
+  xp: number;
+  xpToNext: number;
+  time: number;
+  pendingLevelUps: number;
+  isPaused: boolean;
+  isGameOver: boolean;
+}
+
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private minimapCanvas: HTMLCanvasElement;
   private minimapCtx: CanvasRenderingContext2D;
   public network = new NetworkManager();
-  private otherPlayers: Map<string, Player> = new Map();
   private lastTime: number = 0;
   private running: boolean = false;
   
@@ -40,7 +60,6 @@ export class GameEngine {
   private keys: { [key: string]: boolean } = {};
   private camera: Point = { x: 0, y: 0 };
   private shake: number = 0;
-  private characterType: 'archer' | 'soldier' = 'archer';
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -93,7 +112,6 @@ export class GameEngine {
   }
 
   public reset(characterType: 'archer' | 'soldier' = 'archer') {
-    this.characterType = characterType;
     this.gameState = {
       level: 1,
       xp: 0,
