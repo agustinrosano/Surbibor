@@ -26,7 +26,7 @@ export class NetworkManager {
     const isLocal = window.location.hostname === 'localhost';
     
     // CAMBIA ESTA URL por la que te de Render cuando crees el servicio
-    const PROD_URL = 'https://mi-servidor-buba.onrender.com'; 
+    const PROD_URL = 'https://bubbasurvivor.onrender.com'; 
     const SERVER_URL = isLocal ? 'http://localhost:3000' : PROD_URL;
 
     this.socket = io(SERVER_URL, { 
