@@ -14,7 +14,7 @@ const multiBtn = document.getElementById('multiplayer-btn');
 const multiModal = document.getElementById('multiplayer-modal');
 const closeMultiBtn = document.getElementById('close-multi-btn');
 
-// Start Flow
+// Start Flow ....
 if (startBtn && mainMenu && characterSelection) {
   startBtn.addEventListener('click', () => {
     mainMenu.style.display = 'none';
