@@ -1,0 +1,4 @@
+node_modules/
+svnode/node_modules/
+dist/
+.vercel/
